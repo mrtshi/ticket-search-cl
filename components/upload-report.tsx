@@ -8,7 +8,7 @@ import { saveTickets } from "@/lib/local-storage";
 import { Ticket } from "@/lib/mock-data";
 
 interface UploadReportProps {
-  onUploadComplete: () => void;
+  onUploadComplete: (tickets: Ticket[], uploadedAt: string) => void;
   label?: string;
   uploadUrl?: string;
 }
@@ -62,10 +62,14 @@ export function UploadReport({
       const uploadType = isArchive ? "archive" : "current";
       const uploadedAt: string = data.uploadedAt || new Date().toISOString();
 
+      // Save to this browser's local cache immediately — the server's in-memory
+      // store runs on serverless functions and isn't guaranteed to persist
+      // between requests, so the local cache is the reliable source of truth
+      // for what this browser just uploaded.
       saveTickets(tickets, uploadType, uploadedAt);
 
       toast.success(`Отчёт загружен: ${data.count} заявок`, { id: toastId });
-      onUploadComplete();
+      onUploadComplete(tickets, uploadedAt);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Неизвестная ошибка";
       toast.error(message, { id: toastId });
@@ -89,7 +93,7 @@ export function UploadReport({
         size="sm"
         onClick={handleClick}
         disabled={uploading}
-        className="gap-2"
+        className="gap-2 rounded-xl"
       >
         {uploading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
