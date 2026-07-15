@@ -1,80 +1,50 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap");
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #eef3f6;
-  --foreground: #0f2a3b;
-  --card: #ffffff;
-  --card-foreground: #0f2a3b;
-  --popover: #ffffff;
-  --popover-foreground: #0f2a3b;
-  --primary: #0e7c97;
-  --primary-foreground: #ffffff;
-  --secondary: #e5f7fa;
-  --secondary-foreground: #0f2a3b;
-  --muted: #f3f7f9;
-  --muted-foreground: #52707f;
-  --accent: #e5f7fa;
-  --accent-foreground: #0e7c97;
-  --destructive: #c13a3a;
-  --destructive-foreground: #ffffff;
-  --border: #d7e4ea;
-  --input: #d7e4ea;
-  --ring: #0ba5c4;
-  --radius: 1rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0.042 265.755);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.965 0.001 286.375);
+  --secondary-foreground: oklch(0.205 0.042 265.755);
+  --muted: oklch(0.965 0.001 286.375);
+  --muted-foreground: oklch(0.556 0.009 286.375);
+  --accent: oklch(0.965 0.001 286.375);
+  --accent-foreground: oklch(0.205 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0.004 286.375);
+  --input: oklch(0.922 0.004 286.375);
+  --ring: oklch(0.205 0.042 265.755);
+  --radius: 0.625rem;
 }
 
 .dark {
-  --background: #0b1e29;
-  --foreground: #e7f1f4;
-  --card: #102838;
-  --card-foreground: #e7f1f4;
-  --popover: #102838;
-  --popover-foreground: #e7f1f4;
-  --primary: #2fbdde;
-  --primary-foreground: #06222b;
-  --secondary: #163647;
-  --secondary-foreground: #e7f1f4;
-  --muted: #163647;
-  --muted-foreground: #8fb0bc;
-  --accent: #163647;
-  --accent-foreground: #2fbdde;
-  --destructive: #e56464;
-  --destructive-foreground: #2b0b0b;
-  --border: #1e3e4e;
-  --input: #1e3e4e;
-  --ring: #2fbdde;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 6px);
-  --radius-md: calc(var(--radius) - 4px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Inter", ui-sans-serif, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0.042 265.755);
+  --secondary: oklch(0.269 0.015 286.375);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0.015 286.375);
+  --muted-foreground: oklch(0.708 0.01 286.375);
+  --accent: oklch(0.269 0.015 286.375);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.269 0.015 286.375);
+  --input: oklch(0.269 0.015 286.375);
+  --ring: oklch(0.439 0.023 286.375);
 }
 
 * {
@@ -82,16 +52,6 @@
 }
 
 body {
-  background: radial-gradient(1200px 600px at 50% -10%, color-mix(in oklab, var(--primary) 8%, transparent), transparent),
-    var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
-}
-
-h1, h2, h3, .font-display {
-  font-family: var(--font-display);
-}
-
-.font-mono-num {
-  font-family: var(--font-mono);
 }

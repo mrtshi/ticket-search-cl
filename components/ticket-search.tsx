@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Loader2,
   X,
-  Snowflake,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,26 +19,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatsDashboard } from "@/components/stats-dashboard";
 import { Ticket } from "@/lib/mock-data";
-import { fetchServerTickets, getStoredTickets } from "@/lib/local-storage";
+import { fetchServerTickets } from "@/lib/local-storage";
 
 const statusColors: Record<string, string> = {
   Утвержден: "bg-green-100 text-green-700 border-green-300",
   "В работе": "bg-cyan-100 text-cyan-700 border-cyan-300",
   Регистрация: "bg-yellow-100 text-yellow-700 border-yellow-300",
-  "Ожидание запчастей": "bg-orange-100 text-orange-700 border-orange-300",
 };
-
-function mergeUnique(a: Ticket[], b: Ticket[]): Ticket[] {
-  const seen = new Set<string>();
-  const result: Ticket[] = [];
-  for (const t of [...a, ...b]) {
-    const key = `${t.ticketNumber}||${t.serialNumber}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(t);
-  }
-  return result;
-}
 
 function ResultCard({ ticket }: { ticket: Ticket }) {
   const statusClass =
@@ -47,7 +33,7 @@ function ResultCard({ ticket }: { ticket: Ticket }) {
     "bg-slate-50 text-slate-700 border-slate-200";
 
   return (
-    <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500 rounded-2xl">
+    <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -55,19 +41,19 @@ function ResultCard({ ticket }: { ticket: Ticket }) {
               <FileText className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg font-mono-num tracking-tight">
-                {ticket.ticketNumber}
+              <CardTitle className="text-lg">
+                Заявка {ticket.ticketNumber}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {ticket.itemName}
               </p>
             </div>
           </div>
-          <Badge className={`${statusClass} shrink-0 rounded-full px-3 py-1`}>{ticket.status}</Badge>
+          <Badge className={`${statusClass} shrink-0`}>{ticket.status}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex items-start gap-3 rounded-xl bg-muted p-3">
+        <div className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
           <div className="mt-0.5 shrink-0">
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </div>
@@ -76,16 +62,16 @@ function ResultCard({ ticket }: { ticket: Ticket }) {
             <p className="text-sm font-medium">{ticket.address}</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 rounded-xl bg-muted p-3">
+        <div className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
           <div className="mt-0.5 shrink-0">
             <Hash className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">Серийный номер</p>
-            <p className="text-sm font-medium font-mono-num">{ticket.serialNumber}</p>
+            <p className="text-sm font-medium">{ticket.serialNumber}</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 rounded-xl bg-muted p-3">
+        <div className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
           <div className="mt-0.5 shrink-0">
             <User className="h-4 w-4 text-muted-foreground" />
           </div>
@@ -94,7 +80,7 @@ function ResultCard({ ticket }: { ticket: Ticket }) {
             <p className="text-sm font-medium">{ticket.performer}</p>
           </div>
         </div>
-        <div className="flex items-start gap-3 rounded-xl bg-muted p-3">
+        <div className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
           <div className="mt-0.5 shrink-0">
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </div>
@@ -104,7 +90,7 @@ function ResultCard({ ticket }: { ticket: Ticket }) {
           </div>
         </div>
         {ticket.completionDate && (
-          <div className="flex items-start gap-3 rounded-xl bg-green-50 p-3 border border-green-200">
+          <div className="flex items-start gap-3 rounded-lg bg-green-50/50 p-3 border border-green-100">
             <div className="mt-0.5 shrink-0">
               <Calendar className="h-4 w-4 text-green-600" />
             </div>
@@ -134,20 +120,8 @@ export function TicketSearch() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    // Prefer this browser's local cache first — instant and reliable even if the
-    // server's in-memory store was reset (serverless functions don't share memory).
-    const local = getStoredTickets();
-    if (local.length > 0) {
-      setAllTickets(local);
-      setInitialLoading(false);
-    }
-
     fetchServerTickets()
-      .then((data) => {
-        if (data.tickets.length > 0) {
-          setAllTickets((prev) => (prev.length > 0 ? mergeUnique(prev, data.tickets) : data.tickets));
-        }
-      })
+      .then((data) => setAllTickets(data.tickets))
       .catch(() => {})
       .finally(() => setInitialLoading(false));
   }, []);
@@ -200,29 +174,16 @@ export function TicketSearch() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto text-center space-y-6 px-4 py-12">
+    <div className="w-full max-w-2xl mx-auto text-center space-y-6">
       {initialLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : showStats ? (
-        <StatsDashboard
-          onBackToSearch={() => {
-            setShowStats(false);
-            setQuery("");
-            setResults([]);
-            setNotFound(false);
-            setError(null);
-          }}
-        />
       ) : (
         <>
-          <div className="flex items-center justify-center gap-2">
-            <Snowflake className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-              Отслеживание заявок на ремонт оборудования
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground tracking-wide uppercase">
+            Отслеживание заявок на ремонт оборудования
+          </p>
 
           <form onSubmit={handleSubmit} className="flex gap-3">
             <div className="relative flex-1">
@@ -236,7 +197,7 @@ export function TicketSearch() {
                     handleClear();
                   }
                 }}
-                className="h-14 text-base pl-5 pr-12 rounded-2xl shadow-sm"
+                className="h-14 text-base pl-5 pr-12 shadow-sm"
               />
               {query && (
                 <button
@@ -253,7 +214,7 @@ export function TicketSearch() {
               type="submit"
               size="lg"
               disabled={loading}
-              className="h-14 px-8 gap-2 text-base font-medium shrink-0 rounded-2xl"
+              className="h-14 px-8 gap-2 text-base font-medium shrink-0"
             >
               {loading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -298,6 +259,18 @@ export function TicketSearch() {
                 />
               ))}
             </div>
+          )}
+
+          {showStats && (
+            <StatsDashboard
+              onBackToSearch={() => {
+                setShowStats(false);
+                setQuery("");
+                setResults([]);
+                setNotFound(false);
+                setError(null);
+              }}
+            />
           )}
         </>
       )}

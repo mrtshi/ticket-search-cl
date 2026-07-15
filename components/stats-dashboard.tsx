@@ -6,6 +6,7 @@ import {
   BarChart3,
   CalendarDays,
   Clock,
+  Flame,
   Loader2,
   Repeat,
   RotateCcw,
@@ -29,26 +30,27 @@ import {
   computeStatsByPeriod,
   countRepeatSerialNumbers,
   DailyCount,
+  FailureCount,
+  getTopFailures,
   getWaitingPartsTickets,
   PERIOD_LABELS,
   Period,
   StatsByStatus,
 } from "@/lib/stats";
-import {
-  fetchServerTickets,
-  getTicketsByType,
-  getUploadedAt,
-  clearTicketsByType,
-} from "@/lib/local-storage";
+import { fetchServerTickets, clearTicketsByType } from "@/lib/local-storage";
 import { toast } from "sonner";
 
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
 
 const statusColors: Record<string, string> = {
-  Утвержден: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400",
-  "В работе": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-900/30 dark:text-cyan-400",
-  Регистрация: "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400",
-  "Ожидание запчастей": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400",
+  Утвержден:
+    "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400",
+  "В работе":
+    "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-900/30 dark:text-cyan-400",
+  Регистрация:
+    "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400",
+  "Ожидание запчастей":
+    "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -56,7 +58,7 @@ function StatusBadge({ status }: { status: string }) {
     statusColors[status] ||
     "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300";
   return (
-    <Badge variant="outline" className={`${color} rounded-full`}>
+    <Badge variant="outline" className={color}>
       {status}
     </Badge>
   );
@@ -71,7 +73,7 @@ function StatsTable({ data }: { data: StatsByStatus[] }) {
       {data.map((item) => (
         <div
           key={item.status}
-          className="flex items-center justify-between rounded-xl bg-muted px-3 py-2"
+          className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2"
         >
           <span className="text-sm font-medium">{item.status}</span>
           <span className="text-sm font-bold tabular-nums">{item.count}</span>
@@ -90,10 +92,10 @@ function WaitingPartsList({ tickets }: { tickets: Ticket[] }) {
       {tickets.map((t) => (
         <div
           key={`${t.ticketNumber}-${t.serialNumber}`}
-          className="rounded-xl border bg-card p-3 text-sm space-y-1"
+          className="rounded-lg border bg-card p-3 text-sm space-y-1"
         >
           <div className="flex items-center justify-between">
-            <span className="font-semibold font-mono-num">{t.ticketNumber}</span>
+            <span className="font-semibold">{t.ticketNumber}</span>
             <StatusBadge status={t.status} />
           </div>
           <p className="text-muted-foreground">{t.itemName}</p>
@@ -125,18 +127,6 @@ function shortenPerformer(name: string): string {
     .replace(/^Общество с ограниченной ответственностью\s*/iu, "ООО ");
 }
 
-function dedupeMerge(current: Ticket[], archive: Ticket[]): Ticket[] {
-  const seen = new Set<string>();
-  const result: Ticket[] = [];
-  for (const t of [...current, ...archive]) {
-    const key = `${t.ticketNumber}||${t.serialNumber}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(t);
-  }
-  return result;
-}
-
 function DailyChart({ data }: { data: DailyCount[] }) {
   if (data.length === 0) {
     return <p className="text-sm text-muted-foreground py-2">Нет данных</p>;
@@ -156,12 +146,44 @@ function DailyChart({ data }: { data: DailyCount[] }) {
               {d.count}
             </span>
             <div
-              className="w-full rounded-sm bg-primary/70 transition-all hover:bg-primary"
+              className="w-full rounded-sm bg-primary/60 transition-all hover:bg-primary/80"
               style={{ height: `${Math.max(heightPct, 2)}%` }}
             />
             <span className="text-[10px] text-muted-foreground">
               {dayLabel}
             </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TopFailures({ data }: { data: FailureCount[] }) {
+  if (data.length === 0) {
+    return <p className="text-sm text-muted-foreground py-2">Нет данных</p>;
+  }
+  const maxCount = Math.max(...data.map((d) => d.count), 1);
+  return (
+    <div className="space-y-2">
+      {data.map((item) => {
+        const widthPct = (item.count / maxCount) * 100;
+        return (
+          <div key={item.itemName} className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="truncate text-muted-foreground mr-2">
+                {item.itemName}
+              </span>
+              <span className="shrink-0 font-bold tabular-nums">
+                {item.count}
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-orange-500/70 transition-all"
+                style={{ width: `${widthPct}%` }}
+              />
+            </div>
           </div>
         );
       })}
@@ -187,47 +209,47 @@ export function StatsDashboard({
 }: {
   onBackToSearch?: () => void;
 }) {
-  const [currentTickets, setCurrentTickets] = useState<Ticket[]>([]);
-  const [archiveTickets, setArchiveTickets] = useState<Ticket[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [uploadedAt, setUploadedAt] = useState<string | null>(null);
-  const [archiveUploadedAt, setArchiveUploadedAt] = useState<string | null>(null);
+  const [archiveUploadedAt, setArchiveUploadedAt] = useState<string | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState<Period>("7d");
-  const [selectedPerformer, setSelectedPerformer] = useState<string | null>(null);
+  const [selectedPerformer, setSelectedPerformer] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
-    // Read this browser's local cache first — instant and always accurate for
-    // whatever was uploaded from this browser. The server's in-memory store
-    // is best-effort only (serverless functions don't reliably share memory
-    // between requests), so we treat it as a secondary source.
-    const localCurrent = getTicketsByType("current");
-    const localArchive = getTicketsByType("archive");
-    setCurrentTickets(localCurrent);
-    setArchiveTickets(localArchive);
-    setUploadedAt(getUploadedAt("current"));
-    setArchiveUploadedAt(getUploadedAt("archive"));
-    setLoading(false);
-
-    if (localCurrent.length === 0 && localArchive.length === 0) {
-      fetchServerTickets()
-        .then((data) => {
-          if (data.tickets.length > 0) {
-            setCurrentTickets(data.tickets);
-            setUploadedAt(data.uploadedAt);
-            setArchiveUploadedAt(data.archiveUploadedAt);
-          }
-        })
-        .catch(() => {});
-    }
-  }, []);
-
-  const tickets = dedupeMerge(currentTickets, archiveTickets);
+    fetchServerTickets()
+      .then((data) => {
+        setTickets(data.tickets);
+        setUploadedAt(data.uploadedAt);
+        setArchiveUploadedAt(data.archiveUploadedAt);
+      })
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Неизвестная ошибка")
+      )
+      .finally(() => setLoading(false));
+  }, [refreshKey]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-destructive">
+          {error}
+        </CardContent>
+      </Card>
     );
   }
 
@@ -243,27 +265,6 @@ export function StatsDashboard({
 
   const hasArchive = archiveUploadedAt !== null;
 
-  const handleUploadComplete = (type: "current" | "archive", uploaded: Ticket[], at: string) => {
-    if (type === "current") {
-      setCurrentTickets(uploaded);
-      setUploadedAt(at);
-    } else {
-      setArchiveTickets(uploaded);
-      setArchiveUploadedAt(at);
-    }
-    // Best-effort: also tell the server, so visitors who haven't cached
-    // anything locally have a chance of seeing it too.
-    fetch("/api/tickets/restore", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        type === "current"
-          ? { tickets: uploaded, uploadedAt: at }
-          : { archiveTickets: uploaded, archiveUploadedAt: at }
-      ),
-    }).catch(() => {});
-  };
-
   const handleDeleteReport = async (type: "current" | "archive") => {
     const label = type === "current" ? "текущий отчёт" : "архив";
     toast(`${label} будет удалён`, {
@@ -272,20 +273,18 @@ export function StatsDashboard({
         onClick: async () => {
           const id = toast.loading(`Удаляем ${label}...`);
           try {
-            clearTicketsByType(type);
-            if (type === "current") {
-              setCurrentTickets([]);
-              setUploadedAt(null);
-            } else {
-              setArchiveTickets([]);
-              setArchiveUploadedAt(null);
-            }
-            fetch("/api/tickets", {
+            const res = await fetch("/api/tickets", {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ type }),
-            }).catch(() => {});
-            toast.success("Готово", { id });
+            });
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || "Ошибка при удалении");
+            }
+            clearTicketsByType(type);
+            toast.success(`Готово`, { id });
+            setRefreshKey((k) => k + 1);
           } catch (err) {
             const message =
               err instanceof Error ? err.message : "Неизвестная ошибка";
@@ -300,7 +299,7 @@ export function StatsDashboard({
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center space-y-3">
-        <h1 className="text-2xl font-bold font-display">Статистика</h1>
+        <h1 className="text-2xl font-bold">Статистика</h1>
         <p className="text-sm text-muted-foreground">
           Всего заявок: {tickets.length}
         </p>
@@ -319,7 +318,7 @@ export function StatsDashboard({
         )}
 
         {uploadedAt && isStale(uploadedAt) && (
-          <div className="mx-auto flex max-w-md items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          <div className="mx-auto flex max-w-md items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>
               Данные загружены более 24 часов назад. Рекомендуется загрузить
@@ -329,17 +328,17 @@ export function StatsDashboard({
         )}
 
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <UploadReport onUploadComplete={(t, at) => handleUploadComplete("current", t, at)} />
+          <UploadReport onUploadComplete={() => setRefreshKey((k) => k + 1)} />
           <UploadReport
             label="Загрузить отчёт за предыдущий период"
             uploadUrl="/api/tickets/upload?type=archive"
-            onUploadComplete={(t, at) => handleUploadComplete("archive", t, at)}
+            onUploadComplete={() => setRefreshKey((k) => k + 1)}
           />
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleDeleteReport("current")}
-            className="gap-2 text-destructive hover:text-destructive rounded-xl"
+            className="gap-2 text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
             Удалить текущий отчёт
@@ -348,7 +347,7 @@ export function StatsDashboard({
             variant="outline"
             size="sm"
             onClick={() => handleDeleteReport("archive")}
-            className="gap-2 text-destructive hover:text-destructive rounded-xl"
+            className="gap-2 text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
             Удалить архив
@@ -360,7 +359,7 @@ export function StatsDashboard({
               setSelectedPerformer(null);
               setSelectedPeriod("7d");
             }}
-            className="gap-2 rounded-xl"
+            className="gap-2"
           >
             <RotateCcw className="h-4 w-4" />
             Сброс
@@ -374,7 +373,7 @@ export function StatsDashboard({
               value={selectedPerformer ?? ""}
               onValueChange={(v) => setSelectedPerformer(v === "" ? null : v)}
             >
-              <SelectTrigger className="w-64 rounded-xl">
+              <SelectTrigger className="w-64">
                 <SelectValue placeholder="Все исполнители" />
               </SelectTrigger>
               <SelectContent>
@@ -393,7 +392,7 @@ export function StatsDashboard({
               value={selectedPeriod}
               onValueChange={(v) => setSelectedPeriod(v as Period)}
             >
-              <SelectTrigger className="w-40 rounded-xl">
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -408,7 +407,7 @@ export function StatsDashboard({
         </div>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             {selectedPeriod === "7d" && (
@@ -428,7 +427,7 @@ export function StatsDashboard({
         <CardContent>
           <StatsTable data={stats} />
           {repeatCount > 0 && (
-            <div className="mt-3 flex items-center justify-between rounded-xl border border-dashed px-3 py-2 text-sm">
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-dashed px-3 py-2 text-sm">
               <span className="flex items-center gap-2 font-medium">
                 <Repeat className="h-4 w-4 text-muted-foreground" />
                 Повторные заявки
@@ -440,7 +439,7 @@ export function StatsDashboard({
       </Card>
 
       {(selectedPeriod === "7d" || selectedPeriod === "30d") && (
-        <Card className="rounded-2xl">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -458,7 +457,19 @@ export function StatsDashboard({
         </Card>
       )}
 
-      <Card className="rounded-2xl">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Flame className="h-4 w-4 text-muted-foreground" />
+            Топ неисправностей
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TopFailures data={getTopFailures(filteredTickets, 10)} />
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Wrench className="h-4 w-4 text-muted-foreground" />
@@ -466,7 +477,7 @@ export function StatsDashboard({
             {waitingParts.length > 0 && (
               <Badge
                 variant="outline"
-                className="ml-auto bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 rounded-full"
+                className="ml-auto bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400"
               >
                 {waitingParts.length}
               </Badge>
